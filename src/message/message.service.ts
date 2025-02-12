@@ -8,6 +8,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateGroupDto } from './dto';
 
+
 @Injectable()
 export class MessageService {
   constructor(
@@ -40,6 +41,12 @@ export class MessageService {
         },
       },
     });
+
+    // Emit event
+    this.eventEmitter.emit('group.join', {
+      users,
+      chat
+    });
     return chat;
   }
 
@@ -57,6 +64,9 @@ export class MessageService {
           },
         },
         createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
       },
     });
     return chats;
@@ -76,7 +86,7 @@ export class MessageService {
     if (!existChat) {
       throw new BadRequestException("you can't add users to this group");
     }
-    const chat = await this.prisma.chatParticipant.createMany({
+    const manyChat = await this.prisma.chatParticipant.createMany({
       data: users.map((userId) => ({
         userId,
         chatId: existChat.id,
@@ -84,7 +94,18 @@ export class MessageService {
       skipDuplicates: true, // Avoid adding the same user multiple times
     });
 
-    return { message: 'user added to group' };
+    const chat = await this.prisma.chat.findUnique({
+      where: {
+        id: groupId,
+      },
+    });
+
+    // Emit event
+    this.eventEmitter.emit('group.join', {
+      users,
+      chat
+    });
+    return chat;
   }
 
   // async getUserChats(id: string, receiverId:string) {
@@ -209,6 +230,9 @@ export class MessageService {
           },
         },
       },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
     return allChats;
@@ -237,6 +261,9 @@ export class MessageService {
             senderId: true,
             content: true,
             createdAt: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
           },
         },
       },
@@ -271,7 +298,13 @@ export class MessageService {
             content: true,
             createdAt: true,
           },
+          orderBy: {
+            createdAt: 'desc',
+          },
         },
+      },
+      orderBy: {
+        createdAt: 'desc',
       },
     });
 
@@ -302,6 +335,9 @@ export class MessageService {
             content: true,
             createdAt: true,
           },
+          orderBy: {
+            createdAt: 'desc',
+          },
         },
       },
     });
@@ -312,14 +348,14 @@ export class MessageService {
     return chat;
   }
 
-  async createChat(senderId: string, receiverEmail: string) {
+  async createChat(senderId: string, receiverPhoneNumber: string) {
     const receiver = await this.prisma.user.findUnique({
       where: {
-        email: receiverEmail,
+        phoneNumber: receiverPhoneNumber,
       },
     });
     if (!receiver) {
-      throw new BadRequestException('No user with this email');
+      throw new BadRequestException('No user with this phoneNumber');
     }
     let receiverId = receiver.id;
 
@@ -494,4 +530,6 @@ export class MessageService {
       receivers: users,
     };
   }
+
+  
 }

@@ -1,9 +1,16 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { InjectRedis } from '@nestjs-modules/ioredis';
+import Redis from 'ioredis';
+import { LocaltionDto } from './dto';
+
 
 @Injectable()
 export class UserService {
-    constructor(private prisma:PrismaService){}
+    constructor(
+      private prisma:PrismaService,
+      @InjectRedis() private readonly redisClient: Redis,
+    ){}
 
     async getOnlineUsers() {
         return await this.prisma.user.findMany({
@@ -12,7 +19,16 @@ export class UserService {
           },
           select: {
             id: true,
-            email: true,
+            phoneNumber: true,
+          },
+        });
+      }
+
+      async getAllUsers() {
+        return await this.prisma.user.findMany({
+          select: {
+            id: true,
+            phoneNumber: true
           },
         });
       }
@@ -42,6 +58,21 @@ export class UserService {
             online,
           },
         });
+      }
+
+      async getNearbyUsers({lat, long, distance}: LocaltionDto){
+        // Find users nearby using GEORADIUS
+        const nearbyUsers = await this.redisClient.georadius(
+          'user-locations',
+          long,
+          lat,
+          distance,
+          'km',
+          'WITHDIST',
+          'ASC',
+        );
+    
+        return nearbyUsers;
       }
 
 }

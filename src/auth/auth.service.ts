@@ -18,9 +18,9 @@ export class AuthService {
 
           // create or update user with its phoneNumber only
           const user = await this.prisma.user.upsert({
-            where: { email: dto.email },
+            where: { phoneNumber: dto.phoneNumber },
             create: {
-              email: dto.email,
+              phoneNumber: dto.phoneNumber,
               password:dto.password
             },
             update:{}
@@ -31,7 +31,7 @@ export class AuthService {
 
           const token = await this.signToken({
             id: user.id,
-            email: user.email,
+            phoneNumber: user.phoneNumber,
             role: 'user',
             deviceId:''
           });
@@ -45,7 +45,7 @@ export class AuthService {
         }
       }
 
-      async signToken(payload: { id: string; email: string, role: string ,deviceId:string}): Promise<string> {
+      async signToken(payload: { id: string; phoneNumber: string, role: string ,deviceId:string}): Promise<string> {
         try {
           const expireAT = this.config.get('JWT_EXPIRATION');
           const secret = this.config.get('JWT_SECRET');
