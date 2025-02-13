@@ -9,6 +9,8 @@ import { MessageModule } from './message/message.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { UserModule } from './user/user.module';
 import { RedisModule } from '@nestjs-modules/ioredis';
+import { CronModule } from './cron/cron.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -22,7 +24,10 @@ import { RedisModule } from '@nestjs-modules/ioredis';
     AuthModule,
     PrismaModule,
     MessageModule,
-    UserModule],
+    UserModule,
+    CronModule,
+    ScheduleModule.forRoot(),
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

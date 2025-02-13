@@ -18,7 +18,8 @@ export class GatewayController {
       - **EMIT (Send events)**  
         - \`update-location\` → Update user location  
         - \`send-message\` → Send a private message  
-        - \`send-group-message\` → Send a message to a group  
+        - \`send-group-message\` → Send a message to a group 
+        - \`nearby-users\` → find nearby users 
 
       - **LISTEN (Receive events)**  
         - \`message\` → General message from server  
@@ -46,6 +47,8 @@ export class GatewayController {
         - Payload: \`{ chatId: string, msg: string }\`  
       - **send-group-message**  
         - Payload: \`{ chatId: string, msg: string }\`  
+      - **nearby-users**  
+        - Payload: \`{ distance: number }\`    
     `,
   })
   
@@ -55,6 +58,7 @@ export class GatewayController {
       { event: 'update-location', payload: UpdateLocationDto },
       { event: 'send-message', payload: SendMessageDto },
       { event: 'send-group-message', payload: SendMessageDto },
+      { event: 'nearby-users', payload: { distance: 5} },
     ];
   }
 

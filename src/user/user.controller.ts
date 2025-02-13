@@ -27,12 +27,14 @@ export class UserController {
         return await this.userService.getAllUsers()
     }
 
-    @Post('nearbyUsers')
+    @Post('nearbyUsersToLocation')
     @ApiOperation({ 
-        summary: 'Get nearby users', 
+        summary: 'Get nearby users to location', 
         description: 'Returns a list of nearby users with in some distance from longitude and latitude.' 
       })
-    async getNearbyUsers(@Body() dto:LocaltionDto){
-        return await this.userService.getNearbyUsers(dto)
+    async getNearbyUsersToLocation(@Body() dto:LocaltionDto){
+        return await this.userService.getNearbyUsersToLocation(dto)
     }
+
+    
 }

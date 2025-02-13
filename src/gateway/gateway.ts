@@ -23,7 +23,6 @@ import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
-
 @WebSocketGateway({
   cors: {
     origin: '*',
@@ -99,7 +98,20 @@ export class Gateway
     await this.redisClient.sadd(`online-users`, user.phoneNumber);
 
     // update online status of user to true
-    await this.userService.updateUserOnlineStatus(user.id, true);
+    const updatedUser = await this.userService.updateUserOnlineStatus(
+      user.id,
+      true,
+    );
+    // Store user location in Redis using GEOADD
+    if (updatedUser.currentLocationLat && updatedUser.currentLocationLong) {
+      await this.redisClient.geoadd(
+        'user-locations',
+        Number(updatedUser.currentLocationLong),
+        Number(updatedUser.currentLocationLat),
+        updatedUser.phoneNumber,
+      );
+    }
+
     // // Map clientId to userId
     // this.clientMap[user.id] = this.clientMap[user.id] || [];
     // this.clientMap[user.id].push(client.id);
@@ -123,14 +135,6 @@ export class Gateway
     //await this.userService.updateUserOnlineStatus(user.id, false);
     this.logger.log(`Cliend id:${client.id} disconnected`);
 
-    // const clients = this.clientMap[user.id];
-    // const index = clients.indexOf(client.id);
-    // if (index != -1) {
-    //   clients.splice(index, 1); // Remove the client from the array
-    //   if (clients.length == 0) {
-    //     delete this.clientMap[user.id];
-    //   }
-    // }
     // Remove the socket ID from Redis
     await this.redisClient.srem(`user:${user.id}:sockets`, client.id);
     const remainingSockets = await this.redisClient.smembers(
@@ -148,7 +152,6 @@ export class Gateway
     console.log('disconnected', remainingSockets);
   }
 
-  
   @SubscribeMessage('update-location')
   async handleUpdateLocation(client: Socket, payload: any) {
     const user = client.data.user;
@@ -165,6 +168,12 @@ export class Gateway
       location.lat,
       user.phoneNumber,
     );
+    // Store the location update in Redis as well (buffer for delayed update to DB)
+    let locationBuffer = await this.redisClient.set(
+      `user:${user.id}:location`,
+      JSON.stringify(location),
+    );
+    console.log('locationBuffer', locationBuffer);
     const members = await this.redisClient.zrange('user-locations', 0, -1);
     // const locations = await this.redisClient.smembers('user-locations');
     console.log('locations', members);
@@ -176,25 +185,6 @@ export class Gateway
     );
     client.emit('update-location', { success: true });
   }
-
-  // @SubscribeMessage('nearby-users')
-  // async handleGetNearbyUsers(client: Socket, radius) {
-  //   const { lat, long, distance } = JSON.parse(radius);
-
-  //   // Find users nearby using GEORADIUS
-  //   const nearbyUsers = await this.redisClient.georadius(
-  //     'user-locations',
-  //     long,
-  //     lat,
-  //     distance,
-  //     'km',
-  //     'WITHDIST',
-  //     'ASC',
-  //   );
-
-  //   this.logger.log(`Nearby users for (${lat}, ${long}):`, nearbyUsers);
-  //   client.emit('nearby-users', { users: nearbyUsers });
-  // }
 
   // @SubscribeMessage('create-chat')
   // async handleCreateChat(client: Socket, payload) {
@@ -284,6 +274,41 @@ export class Gateway
         }
       }
     });
+  }
+
+  @SubscribeMessage('nearby-users')
+  async handlegetNearbyUsers(client: Socket, payload) {
+    const user = client.data.user;
+    console.log(payload);
+    const { distance } = JSON.parse(payload);
+
+    const userLocation = await this.redisClient.geopos(
+      'user-locations',
+      user.phoneNumber,
+    );
+    console.log('userLocation', userLocation);
+
+    if (userLocation && userLocation[0]) {
+      let [long, lat] = userLocation[0];
+      console.log('lat', lat, 'long', long);
+
+      // Find users nearby using GEORADIUS
+      const nearbyUsers = await this.redisClient.georadius(
+        'user-locations',
+        long,
+        lat,
+        distance,
+        'km',
+        'WITHDIST',
+        'ASC',
+      );
+      console.log('nearbyUsers', nearbyUsers);
+      // Filter out users with a distance of '0.0000'
+      const filteredUsers = nearbyUsers.filter(([user, distance]) => parseFloat(distance) > 0);
+      client.emit('nearby-users', { users: filteredUsers });
+    } else {
+      client.emit('nearby-users', { message: 'User location not found' });
+    }
   }
 
   @OnEvent('group.join')

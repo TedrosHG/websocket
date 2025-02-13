@@ -3,6 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import { LocaltionDto } from './dto';
+import { log } from 'console';
 
 
 @Injectable()
@@ -28,7 +29,9 @@ export class UserService {
         return await this.prisma.user.findMany({
           select: {
             id: true,
-            phoneNumber: true
+            phoneNumber: true,
+            currentLocationLat: true,
+            currentLocationLong: true
           },
         });
       }
@@ -60,7 +63,7 @@ export class UserService {
         });
       }
 
-      async getNearbyUsers({lat, long, distance}: LocaltionDto){
+      async getNearbyUsersToLocation({lat, long, distance}: LocaltionDto){
         // Find users nearby using GEORADIUS
         const nearbyUsers = await this.redisClient.georadius(
           'user-locations',
@@ -74,5 +77,7 @@ export class UserService {
     
         return nearbyUsers;
       }
+
+      
 
 }
